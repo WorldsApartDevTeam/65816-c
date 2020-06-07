@@ -37,7 +37,7 @@ void cpp_mergeLines(struct ptr_ll* lines) {
                 newLine[i] = curLine[i];
             }
             for(unsigned i = 0; i < nextLineLen; i++) {
-                newLine[i+lineLen-1] = newLine[i];
+                newLine[i+lineLen-1] = nextLine[i];
             }
             newLine[lineLen+nextLineLen-1] = 0; // Yes, this is correct.
             curNode->ptr = newLine;
