@@ -1,3 +1,5 @@
 build
-pull
-push
+pull.bat
+push.bat
+*.o
+*.exe
