@@ -20,7 +20,7 @@ C   [a-zA-Z]
 "long"		{return LONG;}
 "float"		{return FLOAT;}
 "double"	{return DOUBLE;}
-"_Bool"		{return BOOL;}
+"_Bool"		{return _BOOL;}
 "void"		{return VOID;}
 "struct"	{return STRUCT;}
 "typedef"	{return TYPEDEF;}
