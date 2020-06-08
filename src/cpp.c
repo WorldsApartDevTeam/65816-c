@@ -9,7 +9,7 @@ struct ptr_ll* cpp_readAndLineBreak(FILE *file) {
     fseek(file, 0, SEEK_END);
     unsigned size = ftell(file);
     fseek(file, 0, SEEK_SET);
-    char *buf = malloc(size+1); // We may not need the +1, but it's there in case we do
+    char *buf = calloc(size+1,1); // We may not need the +1, but it's there in case we do
     fread(buf, 1, size, file);
     fclose(file);
     buf[size] = 0; // Just in case.

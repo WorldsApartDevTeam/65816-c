@@ -6,7 +6,9 @@
 #include <string.h>
 
 #include "cpp.h"
-#include "lex.h"
+
+int yyparse();
+FILE *yyin;
 
 struct input_ll_node {
     struct input_ll_node *next;
@@ -41,8 +43,47 @@ char* compile(char *filename) {
     printf("%s", preprocessed);
 
     fclose(file);
+	file = fopen(filename, "r");
+	yyin=file;
+	yyparse();
     return filename; // Haven't finished processing
 }
+
+void yyerror (char const *s)
+{
+  fprintf (stderr, "%s\n", s);
+}
+
+void *smalloc(size_t len)
+{
+
+    void* ptr;
+
+    ptr=calloc(len,1);
+    if(ptr==NULL)
+    {
+
+        fprintf(stderr,"Error: Out of Memory\n");
+        exit(-1);
+
+    }
+
+    return ptr;
+
+}
+
+char *strndup(char *str,size_t len)
+{
+
+    char *new;
+
+    len=strlen(str)>len?len:strlen(str);
+    new=smalloc(len);
+    strncpy(new,str,len);
+
+    return new;
+
+} 
 
 int main(int argc, const char **argv) {
     bool object = 0;
@@ -129,4 +170,7 @@ int main(int argc, const char **argv) {
         }
         curNode = curNode->next;
     }
+	
+	
+	
 }
