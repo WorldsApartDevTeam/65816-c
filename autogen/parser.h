@@ -59,12 +59,14 @@ extern int yydebug;
      STATEMENT = 268,
      COMPOUND = 269,
      FUNCTION = 270,
-     DECLLIST = 271,
+     BLOCKLIST = 271,
      DECLARATION = 272,
      DECLARATOR = 273,
-     NEGATE = 274,
-     ICONSTANT = 275,
-     ID = 276
+     DECLARATOR_LIST = 274,
+     INIT_EXPRESSION = 275,
+     NEGATE = 276,
+     ICONSTANT = 277,
+     ID = 278
    };
 #endif
 
@@ -83,7 +85,7 @@ typedef union YYSTYPE
 
 
 /* Line 2058 of yacc.c  */
-#line 87 "autogen/parser.h"
+#line 89 "autogen/parser.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

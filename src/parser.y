@@ -20,27 +20,36 @@
 	struct tlink *link;
 }
 
-%token INT 
-%token RETURN
-%token SHL SHR LE GE NE EQ LOR LAND
+%token INT LONG SHORT CHAR FLOAT DOUBLE _BOOL VOID STRUCT TYPEDEF UNION
+%token SIGNED UNSIGNED STATIC AUTO VOLATILE _ATOMIC EXTERN CONST RESTRICT REGISTER
+%token IF ELSE WHILE DO FOR SWITCH CASE DEFAULT LABEL
+%token RETURN GOTO BREAK CONTINUE
+%token SHL SHR LE GE NE EQ LOR LAND SIZEOF
+%token INC DEC INDIRECT DOTDOTDOT
+%token MUL_EQ DIV_EQ MOD_EQ ADD_EQ SUB_EQ SHL_EQ SHR_EQ AND_EQ XOR_EQ OR_EQ
 
-%token STATEMENT COMPOUND FUNCTION DECLLIST DECLARATION DECLARATOR
+%token STATEMENT COMPOUND FUNCTION 
+%token BLOCKLIST DECLARATION DECLARATOR DECLARATOR_LIST INIT_EXPRESSION
 %token NEGATE
 
 %token <d>      ICONSTANT 
 %token <str>    ID
 
 %type <node> function_definition 
-%type <node> direct_declarator declarator init_declarator declaration declaration_list
-%type <node> compound_statement statement_list statement jump_statement
-%type <node> expression logical_or_expression logical_and_expression inclusive_or_expression 
+%type <node> direct_declarator declarator init_declarator declaration block_item_list block_item
+%type <node> init_declarator_list initializer
+%type <node> compound_statement  statement jump_statement
+%type <node> expression assignment_expression conditional_expression
+%type <node> logical_or_expression logical_and_expression inclusive_or_expression 
 %type <node> exclusive_or_expression and_expression equality_expression relational_expression 
 %type <node> shift_expression additive_expression multiplicative_expression 
-%type <node> unary_expression primary_expression
+%type <node> cast_expression unary_expression postfix_expression primary_expression
+
+%type <node> declaration_specifiers
 
 %type <d> type_qualifier
 
-%type <link> declaration_specifiers
+
 
 %start translation_unit
 
@@ -53,7 +62,7 @@ translation_unit
 
 external_declaration
 	: function_definition	{func_eval($1);}
-	| declaration			{yyerror("Error: declaration not implemented\n");}
+	| declaration			{yyerror("Error: global declaration not implemented\n");}
 	;
 
 function_definition
@@ -62,32 +71,38 @@ function_definition
 	
 compound_statement
 	: '{' '}'									{$$=newast(COMPOUND,NULL,NULL);}
-	| '{' statement_list '}'					{$$=newast(COMPOUND,$2,NULL);}
-	| '{' declaration_list '}'					{$$=newast(COMPOUND,NULL,$2);}
-	| '{' declaration_list statement_list '}'	{$$=newast(COMPOUND,$3,$2);}
+	| '{' block_item_list '}'					{$$=newast(COMPOUND,$2,NULL);}
 	;
 
-declaration_list
+block_item_list
+	: block_item								{$$=newast(BLOCKLIST,NULL,$1);}
+	| block_item_list block_item				{$$=newast(BLOCKLIST,$1,$2);}
+	;
+
+block_item
 	: declaration								{$$=$1;}
-	| declaration_list declaration				{$$=newast(DECLLIST,$1,$2);}
+	| statement									{$$=$1;}
 	;
 	
 declaration
-	: declaration_specifiers init_declarator ';'	{$$=newast(DECLARATION,$1,$2);}
+	: declaration_specifiers init_declarator_list ';'	{$$=newast(DECLARATION,$1,$2);}
 	;
 	
 declaration_specifiers
-	: type_qualifier		{$$=newtype($1,NULL);}
+	: type_qualifier							{$$=newast($1,NULL,NULL);}
 	;
 	
 type_qualifier
-	: INT 		{$$=INT;}
+	: INT 										{$$=INT;}
 	;
-	
+
+init_declarator_list
+	: init_declarator							{$$=newast(DECLARATOR_LIST,NULL,$1);}
+	| init_declarator_list ',' init_declarator	{$$=newast(DECLARATOR_LIST,$1,$3);}
 
 init_declarator
 	: declarator							{$$=newast(DECLARATOR,$1,NULL);}
-	| declarator '=' expression				{$$=newast(DECLARATOR,$1,$3);}
+	| declarator '=' initializer			{$$=newast(DECLARATOR,$1,$3);}
 	;
 	
 declarator
@@ -98,12 +113,11 @@ direct_declarator
 	: ID									{$$=newast(ID,$1,NULL);}
 	| '(' declarator ')'					{$$=$2;}
 	;
+	
+initializer
+	: assignment_expression					{$$=newast(INIT_EXPRESSION,$1,NULL);}
+	;
 		
-
-statement_list
-    : statement								{$$=$1;}
-    |  statement statement_list				{$$=newast(STATEMENT,$1,$2);}
-    ;
 
 statement
 	: jump_statement						{$$=$1;}
@@ -115,7 +129,22 @@ jump_statement
 	;
 
 expression
-	: logical_or_expression									{$$=$1;}
+	: assignment_expression									{$$=$1;}
+	| expression ',' assignment_expression					{$$=newast(',',$1,$3);}
+	;
+	
+/*constant_expression
+	: conditional_expression
+	;*/
+	
+assignment_expression
+	: conditional_expression
+	;
+	
+conditional_expression
+	: logical_or_expression
+	| logical_or_expression '?' expression ':' conditional_expression 
+											{$$=newast('?',$1,newast(':',$3,$5));}
 	;
 
 logical_or_expression
@@ -175,18 +204,26 @@ multiplicative_expression
 	| multiplicative_expression '/' unary_expression		{$$=newast('/',$1,$3);}
 	| multiplicative_expression '%' unary_expression		{$$=newast('%',$1,$3);}
 	;
-	
-unary_expression
-	: primary_expression					{$$=$1;}
-	| '+' unary_expression 					{$$=$2;}
-	| '-' unary_expression					{$$=newast(NEGATE,$2,NULL);}
-	| '~' unary_expression					{$$=newast('~',$2,NULL);}
-	| '!' unary_expression					{$$=newast('!',$2,NULL);}
+
+cast_expression
+	: unary_expression						{$$=$1;}
 	;
+
+unary_expression
+	: postfix_expression					{$$=$1;}
+	| '+' cast_expression 					{$$=$2;}
+	| '-' cast_expression					{$$=newast(NEGATE,$2,NULL);}
+	| '~' cast_expression					{$$=newast('~',$2,NULL);}
+	| '!' cast_expression					{$$=newast('!',$2,NULL);}
+	;
+
+postfix_expression
+	: primary_expression					{$$=$1;}
 
 primary_expression
 	: ICONSTANT				{$$=(void*)newnumber(ICONSTANT,$1);}
 	| '(' expression ')'	{$$=$2;}
+	| ID					{$$=newast(ID,$1,NULL);}
 	;
 
 %%
