@@ -4,7 +4,7 @@
     #include "parser.h"
 
     void yyerror(char *str);
-    char *strndup(char *str,size_t len);
+    char *istrndup(const char *str,size_t len);
 
 
 %}
@@ -18,7 +18,7 @@ C   [a-zA-Z]
 "return"	{return RETURN;}
 
 [0-9]+                  {yylval.d=atoi(yytext);return ICONSTANT;}
-[_a-zA-Z][_a-zA-Z0-9]*    {yylval.str=strndup(yytext,32);return ID;}
+[_a-zA-Z][_a-zA-Z0-9]*    {yylval.str=istrndup(yytext,32);return ID;}
 
 "="			|
 "("         |

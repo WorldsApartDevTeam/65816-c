@@ -5,10 +5,10 @@
 #include <stdnoreturn.h>
 #include <string.h>
 
-#include "cpp.h"
+#include <cpp.h>
 
 int yyparse();
-FILE *yyin;
+extern FILE *yyin;
 
 struct input_ll_node {
     struct input_ll_node *next;
@@ -72,7 +72,7 @@ void *smalloc(size_t len)
 
 }
 
-char *strndup(char *str,size_t len)
+char *istrndup(const char *str,size_t len)
 {
 
     char *new;
@@ -83,7 +83,7 @@ char *strndup(char *str,size_t len)
 
     return new;
 
-} 
+}
 
 int main(int argc, const char **argv) {
     bool object = 0;

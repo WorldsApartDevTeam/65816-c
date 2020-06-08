@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "ast.h"
-#include "parser.h"
+#include <ast.h>
+#include <parser.h>
 void yyerror (char const *s);
 
 void freenode(struct astnode *ptr)

@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "typelist.h"
+#include <typelist.h>
 
 void *smalloc(size_t len);
 

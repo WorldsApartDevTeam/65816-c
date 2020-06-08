@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cpp.h"
-#include "ll.h"
+#include <cpp.h>
+#include <ll.h>
 
 struct ptr_ll* cpp_readAndLineBreak(FILE *file) {
     fseek(file, 0, SEEK_END);
