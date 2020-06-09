@@ -23,9 +23,9 @@ void func_eval(struct astnode *ptr)
 	
 	stmt_eval(ptr->right);
 	
-	freenode(ptr->right);
-	free(ptr->left);
-	free(ptr);
+	//freenode(ptr->right);
+	//free(ptr->left);
+	//free(ptr);
 	
 	return;
 	

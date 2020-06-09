@@ -9,8 +9,25 @@ struct astnode
 struct numbernode
 {
 	int type;
-	int number;
+	long long number;
+};
+
+struct floatnode
+{
+	int type;
+	long double number;
+};
+
+struct fornode
+{
+	int type;
+	void *a;
+	void *b;
+	void *c;
+	void *statement;
 };
 
 struct astnode *newast(int type,void *left,void* right);
-struct numbernode *newnumber(int type,int number);
+struct numbernode *newnumber(int type,long long number);
+struct floatnode *newfloat(int type, long double number);
+struct fornode *newfor(int type,void *a,void *b,void *c,void *statement);
