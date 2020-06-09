@@ -4,14 +4,19 @@
     #include "parser.h"
 
     void yyerror(char *str);
-    char *istrndup(const char *str,size_t len);
+    char *istrndup(char *str,size_t len);
 
 
 %}
 
 %option noyywrap
-D   [0-9]
-C   [a-zA-Z]
+D			[0-9]
+L			[a-zA-Z_]
+H			[a-fA-F0-9]
+E			([Ee][+-]?{D}+)
+P           ([Pp][+-]?{D}+)
+FS			(f|F|l|L)
+IS          ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 %%
 "char"		{return CHAR;}
@@ -20,7 +25,7 @@ C   [a-zA-Z]
 "long"		{return LONG;}
 "float"		{return FLOAT;}
 "double"	{return DOUBLE;}
-"_Bool"		{return _BOOL;}
+"_Bool"		{return BOOL;}
 "void"		{return VOID;}
 "struct"	{return STRUCT;}
 "typedef"	{return TYPEDEF;}
@@ -31,7 +36,7 @@ C   [a-zA-Z]
 "static"	{return STATIC;}
 "auto"		{return AUTO;}
 "volatile"	{return VOLATILE;}
-"_Atomic"	{return _ATOMIC;}
+"_Atomic"	{return ATOMIC;}
 "extern"	{return EXTERN;}
 "const"		{return CONST;}
 "restrict"	{return RESTRICT;}
@@ -53,8 +58,10 @@ C   [a-zA-Z]
 
 "sizeof"	{return SIZEOF;}
 
-[0-9]+                  {yylval.d=atoi(yytext);return ICONSTANT;}
-[_a-zA-Z][_a-zA-Z0-9]*    {yylval.str=istrndup(yytext,32);return ID;}
+[0-9]+                  {yylval.d=atol(yytext);return ICONSTANT;}
+[_a-zA-Z][_a-zA-Z0-9]*  {yylval.str=istrndup(yytext,32);return ID;}
+
+\"(\\.|[^\\"\n])*\"		{yylval.str=istrndup(yytext,128);return STRING;}
 
 "?"			|
 ":"			|
