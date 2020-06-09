@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "ast.h"
-#include "typelist.h"
-#include "eval.h"
-#include "parser.h"
-#include "free.h"
+#include <ast.h>
+#include <typelist.h>
+#include <eval.h>
+#include <parser.h>
+#include <free.h>
 void yyerror (char const *s);
 
 extern FILE *file; 

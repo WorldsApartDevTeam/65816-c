@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "ast.h"
+#include <ast.h>
 
 void *smalloc(size_t len);
 
