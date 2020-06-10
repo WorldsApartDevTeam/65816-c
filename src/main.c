@@ -85,6 +85,116 @@ char *istrndup(const char *str,size_t len)
 
 }
 
+#include "ll.h"
+
+struct asm_ast_label {
+    char *label;
+};
+
+struct asm_ast_instruction {
+    unsigned char opcode;
+    void *params;
+};
+
+struct asm_ast_directive {
+    char *directive;
+    char **params;
+};
+
+struct asm_ast_node_generic {
+    int type;
+    void *node;
+};
+
+struct asm_ast {
+    struct ptr_ll *nodes;
+};
+
+struct ptr_ll* cpp_readAndLineBreak(FILE *file); // I don't want to bother rewriting this...
+
+struct asm_ast cur_ast;
+
+void asm_make_ast(void *_line) {
+    char *line = (char*)_line;
+    while(*line == ' ' || *line == '\t') line++;
+    if(*line == 0) return;
+    char *opStart = line;
+    while(
+        (*line >= 'A' && *line <= 'Z') ||
+        (*line >= 'a' && *line <= 'z') ||
+        (*line >= '0' && *line <= '9') ||
+        *line == '_' ||
+        *line == '.' ||
+        *line == '+' ||
+        *line == '-'
+    ) line++;
+
+    while(*line == ':') {
+        // Label
+        struct asm_ast_node_generic *node = malloc(sizeof(struct asm_ast_node_generic));
+        node->type = 0;
+        struct asm_ast_label *label = malloc(sizeof(struct asm_ast_label));
+        *line = 0; // Nice null terminator ;)
+        label->label = opStart;
+        ptr_ll_add(cur_ast.nodes, node);
+
+        // Right, now we need to reset in case there's a label or another instruction after this. Right.
+        line++;
+        opStart = line;
+        while(
+            (*line >= 'A' && *line <= 'Z') ||
+            (*line >= 'a' && *line <= 'z') ||
+            (*line >= '0' && *line <= '9') ||
+            *line == '_' ||
+            *line == '.' ||
+            *line == '+' ||
+            *line == '-'
+        ) line++;
+    }
+    if(*opStart == '.') {
+        opStart++; // Directive
+        struct asm_ast_node_generic *node = malloc(sizeof(struct asm_ast_node_generic));
+        node->type = 2;
+        struct asm_ast_directive *directive = malloc(sizeof(struct asm_ast_directive));
+        node->node = directive;
+        *line = 0; // Null terminate, as always
+        directive->directive = opStart;
+        while(*opStart != 0) { // And now, to capitalize
+            if(*opStart >= 'a') *opStart -= 'a' - 'A';
+            opStart++;
+        }
+        // I know that plenty of directives have parameters.
+        // I'm going to ignore that for now, because I don't know what they are.
+        ptr_ll_add(cur_ast.nodes, node);
+    }
+}
+
+char* assemble(char *filename) {
+    FILE *input = fopen(filename, "r");
+    struct asm_ast ast;
+
+    struct ptr_ll *lines = cpp_readAndLineBreak(input);
+
+    cur_ast = ast; // Excuse my horrible code; this is meant to work well enough
+    ptr_ll_iter(lines, asm_make_ast);
+
+    char *tmpname = tmpnam(NULL);
+    size_t tmpnamelen = strlen(tmpname);
+    char *resname = malloc(tmpnamelen+3); // +2 for .o, +1 for \0
+    resname[0] = 0;
+    strcpy(resname, tmpname);
+    resname[tmpnamelen] = '.';
+    resname[tmpnamelen+1] = 'o';
+    resname[tmpnamelen+2] = 0;
+    FILE *result = fopen(resname, "wb");
+
+    printf("%s", resname);
+
+    fclose(result);
+
+    return resname;
+}
+
 int main(int argc, const char **argv) {
     bool object = 0;
 
@@ -157,7 +267,7 @@ int main(int argc, const char **argv) {
             output = malloc(strlen(inputs.top->name)+1);
             strcpy(output, inputs.top->name);
             output[strlen(inputs.top->name)] = 0;
-            output[strlen(inputs.top->name)-1] = 'o'; // Replace ".c" with ".o"
+            output[strlen(inputs.top->name)-1] = 'o'; // Replace ".c"/".s" with ".o"
         } else {
             output = "a.out";
         }
@@ -170,7 +280,12 @@ int main(int argc, const char **argv) {
         }
         curNode = curNode->next;
     }
-	
-	
-	
+
+    curNode = inputs.top;
+    while(curNode != NULL) {
+        if(curNode->name[strlen(curNode->name)-1] == 's') {
+            curNode->name = assemble(curNode->name);
+        }
+        curNode = curNode->next;
+    }
 }
