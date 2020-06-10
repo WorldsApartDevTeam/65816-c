@@ -21,7 +21,7 @@
 	struct tlink *link;
 }
 
-%token INT LONG SHORT CHAR FLOAT DOUBLE BOOL VOID STRUCT TYPEDEF UNION
+%token INT LONG SHORT CHAR FLOAT DOUBLE BOOL VOID STRUCT TYPEDEF UNION ENUM
 %token SIGNED UNSIGNED STATIC AUTO VOLATILE ATOMIC EXTERN CONST RESTRICT REGISTER
 %token IF ELSE WHILE DO FOR SWITCH CASE DEFAULT LABEL
 %token RETURN GOTO BREAK CONTINUE
@@ -29,29 +29,36 @@
 %token INC DEC INDIRECT DOTDOTDOT
 %token MUL_EQ DIV_EQ MOD_EQ ADD_EQ SUB_EQ SHL_EQ SHR_EQ AND_EQ XOR_EQ OR_EQ
 
-%token STATEMENT COMPOUND FUNCTION IFELSE
+%token STATEMENT COMPOUND FUNCTION IFELSE STRUCT_UNION TYPEDEF_ID
 %token BLOCKLIST DECLARATION DECLARATOR DECLARATOR_LIST INIT_EXPRESSION
 %token NEGATE ARRAY FUNCCALL POSTINC POSTDEC PREINC PREDEC
 %token ARGLIST
+%token STRUCT_DECLARATION_LIST STRUCT_DECLARATION SPECIFIER_QUALIFIER_LIST STRUCT_DECLARATOR_LIST STRUCT_DECLARATOR
+%token ENUMERATOR_LIST ENUMERATOR ATOMIC2
+%token POINTER TYPE_QUALIFIER_LIST PARAMETER_LIST PARAMETER_DECLARATION IDENTIFIER_LIST
+%token TYPE_NAME ABSTRACT_DECLARATOR
+%token	INITIALIZER_LIST DESIGNATION DESIGNATION_INITIALIZER DESIGNATOR_LIST
 
-%token <d>      ICONSTANT 
-%token <f>		FCONSTANT
-%token <str>    ID STRING
+%token <str>    ID STRING FCONSTANT ICONSTANT ENUM_CONSTANT TYPEDEF_NAME
 
 %type <node> function_definition 
 %type <node> direct_declarator declarator init_declarator declaration block_item_list block_item
-%type <node> init_declarator_list initializer
+%type <node> declaration_specifiers_opt enum_specifier struct_union_specifier atomic_type_specifier
+%type <node> struct_declariation_list struct_declariation specifier_qualifier_list struct_declarator_list struct_declarator specifier_qualifier_list_opt
+%type <node> enumerator_list enumerator
+%type <node> init_declarator_list initializer parameter_type_list parameter_declaration
 %type <node> compound_statement  statement jump_statement labeled_statement selection_statement iteration_statement
 %type <node> expression assignment_expression conditional_expression constant_expression expression_opt
 %type <node> logical_or_expression logical_and_expression inclusive_or_expression 
 %type <node> exclusive_or_expression and_expression equality_expression relational_expression 
 %type <node> shift_expression additive_expression multiplicative_expression 
-%type <node> cast_expression unary_expression postfix_expression argument_expression_list
-primary_expression
+%type <node> cast_expression unary_expression postfix_expression argument_expression_list primary_expression
+%type <node> declaration_specifiers pointer type_qualifier_list parameter_list identifier_list 
+%type <node> type_name abstract_declarator direct_abstract_declarator //direct_abstract_declarator_opt
+%type <node> initializer_list designation designator_list designator designation_initializer
 
-%type <node> declaration_specifiers
 
-%type <d> type_qualifier assignment_operator
+%type <d> type_qualifier assignment_operator storage_class_specifier struct_or_union type_specifier
 
 
 
@@ -88,40 +95,257 @@ block_item
 	| statement									{$$=$1;}
 	;
 	
+	
+	
+	
 declaration
 	: declaration_specifiers init_declarator_list ';'	{$$=newast(DECLARATION,$1,$2);}
 	;
 	
 declaration_specifiers
-	: type_qualifier							{$$=newast($1,NULL,NULL);}
+	: storage_class_specifier declaration_specifiers_opt	{$$=newast($1,$2,NULL);}
+	| type_specifier declaration_specifiers_opt				{$$=newast($1,$2,NULL);}
+	| atomic_type_specifier declaration_specifiers_opt		{$$=newast(ATOMIC,$2,$1);}
+	| struct_union_specifier declaration_specifiers_opt		{$$=newast(STRUCT_UNION,$2,$1);}
+	| enum_specifier declaration_specifiers_opt				{$$=newast(ENUM,$2,$1);}
+	| TYPEDEF_NAME declaration_specifiers_opt				{$$=newast(TYPEDEF_ID,$2,$1);}
+	| type_qualifier declaration_specifiers_opt				{$$=newast($1,$2,NULL);}
 	;
 	
-type_qualifier
-	: INT 										{$$=INT;}
+declaration_specifiers_opt
+	: declaration_specifiers							{$$=$1;}
+	| 													{$$=NULL;}
 	;
 
 init_declarator_list
 	: init_declarator							{$$=newast(DECLARATOR_LIST,NULL,$1);}
 	| init_declarator_list ',' init_declarator	{$$=newast(DECLARATOR_LIST,$1,$3);}
+	;
 
 init_declarator
 	: declarator							{$$=newast(DECLARATOR,$1,NULL);}
 	| declarator '=' initializer			{$$=newast(DECLARATOR,$1,$3);}
 	;
 	
+
+
+storage_class_specifier
+	: TYPEDEF		{$$=TYPEDEF;}
+	| EXTERN		{$$=EXTERN;}
+	| STATIC		{$$=STATIC;}
+	| AUTO			{$$=AUTO;}
+	| REGISTER		{$$=REGISTER;}
+	;
+
+type_specifier
+	: INT 										{$$=INT;}
+	| VOID										{$$=VOID;}
+	| CHAR										{$$=CHAR;}
+	| SHORT										{$$=SHORT;}
+	| LONG										{$$=LONG;}
+	| FLOAT										{$$=FLOAT;}
+	| DOUBLE									{$$=DOUBLE;}
+	| SIGNED									{$$=SIGNED;}
+	| UNSIGNED									{$$=UNSIGNED;}
+	| BOOL										{$$=BOOL;}
+	;
+	
+atomic_type_specifier
+	: ATOMIC '(' type_name	')'				{$$=newast(ATOMIC,$3,NULL);}
+	; // INCOMPLETE
+
+
+
+
+struct_union_specifier	
+	: struct_or_union ID '{' struct_declariation_list '}'	{$$=newast($1,$2,$4);}
+	| struct_or_union  '{' struct_declariation_list '}'		{$$=newast($1,NULL,$3);}
+	| struct_or_union ID									{$$=newast($1,$2,NULL);}
+	;
+	
+struct_or_union
+	:	STRUCT		{$$=STRUCT;}
+	|	UNION		{$$=UNION;}
+	;
+	
+struct_declariation_list
+	: struct_declariation									{$$=newast(STRUCT_DECLARATION_LIST,$1,NULL);}
+	| struct_declariation_list struct_declariation			{$$=newast(STRUCT_DECLARATION_LIST,$2,$1);}
+	;
+	
+struct_declariation
+	: specifier_qualifier_list struct_declarator_list ';'	{$$=newast(STRUCT_DECLARATION,$1,$2);}
+	| specifier_qualifier_list ';'							{$$=newast(STRUCT_DECLARATION,$1,NULL);}
+	;
+	
+specifier_qualifier_list 
+	: type_specifier specifier_qualifier_list_opt			{$$=newast($1,$2,NULL);}
+	| atomic_type_specifier specifier_qualifier_list_opt	{$$=newast(ATOMIC,$2,$1);}
+	| struct_union_specifier specifier_qualifier_list_opt	{$$=newast(STRUCT_UNION,$2,$1);}
+	| enum_specifier specifier_qualifier_list_opt			{$$=newast(ENUM,$2,$1);}
+	| TYPEDEF_NAME specifier_qualifier_list_opt				{$$=newast(TYPEDEF_ID,$2,$1);}
+	| type_qualifier specifier_qualifier_list_opt			{$$=newast($1,$2,NULL);}
+	;
+	
+specifier_qualifier_list_opt
+	: specifier_qualifier_list	{$$=$1;}
+	|							{$$=NULL;}
+	;
+	
+struct_declarator_list
+	: struct_declarator										{$$=newast(STRUCT_DECLARATOR_LIST,$1,NULL);}
+	| struct_declarator_list ',' struct_declarator			{$$=newast(STRUCT_DECLARATOR_LIST,$3,$1);}
+	;
+	
+struct_declarator
+	: declarator											{$$=newast(STRUCT_DECLARATOR,$1,NULL);}		
+	| declarator ':' constant_expression					{$$=newast(STRUCT_DECLARATOR,$1,$3);}
+	| ':' constant_expression								{$$=newast(STRUCT_DECLARATOR,NULL,$2);}
+	;
+
+
+
+	
+enum_specifier
+	: ENUM '{'enumerator_list '}'			{$$=newast(ENUM,NULL,$3);}
+	| ENUM ID '{'enumerator_list  '}'		{$$=newast(ENUM,$2,$4);}
+	| ENUM '{'enumerator_list ',' '}'		{$$=newast(ENUM,NULL,$3);}
+	| ENUM ID '{'enumerator_list ',' '}'	{$$=newast(ENUM,$2,$4);}
+	| ENUM ID 								{$$=newast(ENUM,$2,NULL);}
+	;
+	
+enumerator_list
+	: enumerator 							{$$=newast(ENUMERATOR_LIST,$1,NULL);}
+	| enumerator_list ',' enumerator		{$$=newast(ENUMERATOR_LIST,$3,$1);}
+	
+enumerator
+	: ID									{$$=newast(ENUMERATOR,$1,NULL);}
+	| ID '=' constant_expression			{$$=newast(ENUMERATOR,$1,$3);}
+	;
+	
+type_qualifier
+	: CONST									{$$=CONST;}
+	| RESTRICT								{$$=RESTRICT;}
+	| VOLATILE								{$$=VOLATILE;}
+	| ATOMIC								{$$=ATOMIC2;}
+	; 
+	
+
+
 declarator
-	: direct_declarator						{$$=$1;}
+	: direct_declarator						{$$=newast(DECLARATOR,$1,NULL);}
+	| pointer direct_declarator				{$$=newast(DECLARATOR,$2,$1);}
 	;
 
 direct_declarator
 	: ID									{$$=newast(ID,$1,NULL);}
 	| '(' declarator ')'					{$$=$2;}
+	| direct_declarator '[' assignment_expression ']'
+											{$$=newast(ARRAY,$1,$3);}
+	| direct_declarator '(' parameter_type_list ')'
+											{$$=newast(FUNCTION,$1,$3);}
+	| direct_declarator '(' identifier_list ')'
+											{$$=newast(FUNCTION,$1,$3);}
+	| direct_declarator '('  ')'			{$$=newast(FUNCTION,$1,NULL);}										
 	;
+	
+pointer 
+	: '*' type_qualifier_list			{$$=newast(POINTER,$2,NULL);}
+	| '*'								{$$=newast(POINTER,NULL,NULL);}
+	| '*' type_qualifier_list pointer	{$$=newast(POINTER,$2,$3);}
+	| '*'  pointer						{$$=newast(POINTER,NULL,$2);}
+	;
+	
+type_qualifier_list
+	: type_qualifier						{$$=newast($1,NULL,NULL);}
+	| type_qualifier_list type_qualifier	{$$=newast($2,$1,NULL);}
+	;
+	
+parameter_type_list 
+	: parameter_list						{$$=$1;}
+	| parameter_list ',' DOTDOTDOT			{$$=newast(DOTDOTDOT,$1,NULL);}
+	;
+	
+parameter_list
+	: parameter_declaration						{$$=newast(PARAMETER_LIST,$1,NULL);}
+	| parameter_list ',' parameter_declaration	{$$=newast(PARAMETER_LIST,$3,$1);}
+	;
+	
+parameter_declaration
+	: declaration_specifiers declarator			{$$=newast(PARAMETER_DECLARATION,$1,$2);}
+	| declaration_specifiers					{$$=newast(PARAMETER_DECLARATION,$1,NULL);}
+	| declaration_specifiers abstract_declarator{$$=newast(PARAMETER_DECLARATION,$1,$2);}
+	;
+
+identifier_list
+	: ID 									{$$=newast(IDENTIFIER_LIST,$1,NULL);}
+	| identifier_list ',' ID				{$$=newast(IDENTIFIER_LIST,$3,$1);}
+	;
+
+ 
+	
+type_name
+	: specifier_qualifier_list abstract_declarator	{$$=newast(TYPE_NAME,$1,$2);}
+	| specifier_qualifier_list						{$$=newast(TYPE_NAME,$1,NULL);}
+	;
+	
+abstract_declarator
+	: pointer								{$$=newast(ABSTRACT_DECLARATOR,$1,NULL);}
+	| direct_abstract_declarator			{$$=newast(ABSTRACT_DECLARATOR,NULL,$1);}
+	| pointer direct_abstract_declarator	{$$=newast(ABSTRACT_DECLARATOR,$1,$2);}
+	;
+	
+direct_abstract_declarator
+	: '(' abstract_declarator ')'				{$$=$2;}
+	| direct_abstract_declarator '[' ']'	{$$=newast(ARRAY,$1,NULL);}
+	| direct_abstract_declarator '[' assignment_expression ']'
+												{$$=newast(ARRAY,$1,$3);}
+	| direct_abstract_declarator '(' parameter_type_list ')'
+												{$$=newast(FUNCTION,$1,$3);}
+	| direct_abstract_declarator '(' ')'		{$$=newast(FUNCTION,$1,NULL);}
+	| '[' ']'									{$$=newast(ARRAY,NULL,NULL);}
+	| '[' assignment_expression ']'				{$$=newast(ARRAY,NULL,$2);}
+	| '(' parameter_type_list ')'				{$$=newast(FUNCTION,NULL,$2);}
+	| '(' ')'									{$$=newast(FUNCTION,NULL,NULL);}
+	;
+	
+/*direct_abstract_declarator_opt
+	: direct_abstract_declarator	{$$=$1;}
+	|								{$$=NULL;}
+	;*/
+	
+
 	
 initializer
 	: assignment_expression					{$$=newast(INIT_EXPRESSION,$1,NULL);}
+	| '{' initializer_list '}'				{$$=$2;}
+	| '{' initializer_list ',' '}'			{$$=$2;}
 	;
 		
+initializer_list 
+	: designation_initializer						{$$=newast(INITIALIZER_LIST,$1,NULL);}
+	| initializer_list ',' designation_initializer	{$$=newast(INITIALIZER_LIST,$3,$1);}
+	;
+	
+designation_initializer
+	: initializer 							{$$=newast(DESIGNATION_INITIALIZER,$1,NULL);}
+	| designation initializer				{$$=newast(DESIGNATION_INITIALIZER,$2,$1);}
+	
+designation
+	: designator_list '='					{$$=$1;}
+	
+designator_list
+	: designator							{$$=newast(DESIGNATOR_LIST,$1,NULL);}
+	| designator_list designator			{$$=newast(DESIGNATOR_LIST,$2,$1);}
+	;
+	
+designator
+	: '[' constant_expression ']'			{$$=newast(ARRAY,$2,NULL);}
+	| '.' ID 								{$$=newast('.',$2,NULL);}
+	;
+
+
+
 
 statement
 	: jump_statement						{$$=$1;}
@@ -159,6 +383,9 @@ iteration_statement
 	| FOR '(' declaration expression_opt expression_opt ')' statement
 											{$$=(void*)newfor(FOR,$3,$4,$5,$7);}
 	;
+	
+	
+	
 	
 expression_opt
 	: 	';'				{$$=NULL;}
@@ -288,8 +515,8 @@ argument_expression_list
 											{$$=newast(ARGLIST,$3,$1);}
 
 primary_expression
-	: ICONSTANT				{$$=(void*)newnumber(ICONSTANT,$1);}
-	| FCONSTANT				{$$=(void*)newfloat(FCONSTANT,$1);}
+	: ICONSTANT				{$$=newast(ICONSTANT,$1,NULL);}
+	| FCONSTANT				{$$=newast(FCONSTANT,$1,NULL);}
 	| '(' expression ')'	{$$=$2;}
 	| ID					{$$=newast(ID,$1,NULL);}
 	| STRING				{$$=newast(STRING,$1,NULL);}
