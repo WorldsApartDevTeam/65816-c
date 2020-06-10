@@ -7,7 +7,7 @@
 
     void yyerror(char *str);
     char *istrndup(char *str,size_t len);
-
+	int check_typedef(char *identifier);
 
 %}
 
@@ -71,6 +71,13 @@ WS  [ \t\v\n\f]
 
 "sizeof"	{return SIZEOF;}
 
+"__asm__"		|
+"asm"			{return ASM;}
+"__attribute__"	|
+"__attribute"	{return ATTRIBUTE;}
+"inline"		{return INLINE;}
+"_Noreturn"		{return NORETURN;}
+
 {HP}{H}+{IS}?					|
 {NZ}{D}*{IS}?					|
 "0"{O}*{IS}?					|
@@ -83,7 +90,7 @@ WS  [ \t\v\n\f]
 {HP}{H}*"."{H}+{P}{FS}?		|
 {HP}{H}+"."{P}{FS}?			{yylval.str=istrndup(yytext,32);return FCONSTANT;}
 
-[_a-zA-Z][_a-zA-Z0-9]*  {yylval.str=istrndup(yytext,32);return ID;}
+[_a-zA-Z][_a-zA-Z0-9]*  {yylval.str=istrndup(yytext,32);return check_typedef(yylval.str);}
 
 \"(\\.|[^\\"\n])*\"		{yylval.str=istrndup(yytext,128);return STRING;}
 
@@ -136,6 +143,7 @@ WS  [ \t\v\n\f]
 "..."		{return DOTDOTDOT;}
 
 "\n"        {   }
-[ \t]       {   }
+[ \t\r]       {   }
 .           {yyerror("Error: unknown character");}
 %%
+

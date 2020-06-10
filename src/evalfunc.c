@@ -9,19 +9,15 @@ void yyerror (char const *s);
 
 extern FILE *file; 
 
-void func_eval(struct astnode *ptr)
+void func_eval	( struct astnode *declaration_specifiers
+				, struct astnode *declarator
+				, struct astnode *declaration_list
+				, struct astnode *compound_statement)
 {
 	
-	if(ptr->type!=FUNCTION)
-	{
-		
-		yyerror("Warning: Invalid function");
-		
-	}
 	
 	//Start function code left side is name of function
-	
-	stmt_eval(ptr->right);
+	printf("Evaluated function\n");
 	
 	//freenode(ptr->right);
 	//free(ptr->left);
@@ -29,4 +25,15 @@ void func_eval(struct astnode *ptr)
 	
 	return;
 	
+}
+void global_eval (struct astnode *ptr)
+{
+	printf("Evaluated global\n");
+	return;
+}
+int check_typedef(char *identifier)
+{
+	//Add code to check if an identifier has been defined via typedef.
+	//Otherwise there are a lot of ambiguities in the C grammar itself
+	return ID;
 }
