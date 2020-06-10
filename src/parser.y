@@ -21,6 +21,8 @@
 	struct tlink *link;
 }
 
+
+%token ASM ATTRIBUTE INLINE NORETURN
 %token INT LONG SHORT CHAR FLOAT DOUBLE BOOL VOID STRUCT TYPEDEF UNION ENUM
 %token SIGNED UNSIGNED STATIC AUTO VOLATILE ATOMIC EXTERN CONST RESTRICT REGISTER
 %token IF ELSE WHILE DO FOR SWITCH CASE DEFAULT LABEL
@@ -32,12 +34,13 @@
 %token STATEMENT COMPOUND FUNCTION IFELSE STRUCT_UNION TYPEDEF_ID
 %token BLOCKLIST DECLARATION DECLARATOR DECLARATOR_LIST INIT_EXPRESSION
 %token NEGATE ARRAY FUNCCALL POSTINC POSTDEC PREINC PREDEC
-%token ARGLIST
+%token ARGLIST CAST 
 %token STRUCT_DECLARATION_LIST STRUCT_DECLARATION SPECIFIER_QUALIFIER_LIST STRUCT_DECLARATOR_LIST STRUCT_DECLARATOR
 %token ENUMERATOR_LIST ENUMERATOR ATOMIC2
 %token POINTER TYPE_QUALIFIER_LIST PARAMETER_LIST PARAMETER_DECLARATION IDENTIFIER_LIST
-%token TYPE_NAME ABSTRACT_DECLARATOR
-%token	INITIALIZER_LIST DESIGNATION DESIGNATION_INITIALIZER DESIGNATOR_LIST
+%token TYPE_NAME ABSTRACT_DECLARATOR DECLERATION_LIST
+%token INITIALIZER_LIST DESIGNATION DESIGNATION_INITIALIZER DESIGNATOR_LIST
+%token ASM_QUALIFER ASM_QUALIFER_LIST ASM_OPERAND ASM_OPERAND_LIST ASM_OPERAND_LIST_2
 
 %token <str>    ID STRING FCONSTANT ICONSTANT ENUM_CONSTANT TYPEDEF_NAME
 
@@ -45,7 +48,7 @@
 %type <node> direct_declarator declarator init_declarator declaration block_item_list block_item
 %type <node> declaration_specifiers_opt enum_specifier struct_union_specifier atomic_type_specifier
 %type <node> struct_declariation_list struct_declariation specifier_qualifier_list struct_declarator_list struct_declarator specifier_qualifier_list_opt
-%type <node> enumerator_list enumerator
+%type <node> enumerator_list enumerator assembly_statement
 %type <node> init_declarator_list initializer parameter_type_list parameter_declaration
 %type <node> compound_statement  statement jump_statement labeled_statement selection_statement iteration_statement
 %type <node> expression assignment_expression conditional_expression constant_expression expression_opt
@@ -54,11 +57,13 @@
 %type <node> shift_expression additive_expression multiplicative_expression 
 %type <node> cast_expression unary_expression postfix_expression argument_expression_list primary_expression
 %type <node> declaration_specifiers pointer type_qualifier_list parameter_list identifier_list 
-%type <node> type_name abstract_declarator direct_abstract_declarator //direct_abstract_declarator_opt
-%type <node> initializer_list designation designator_list designator designation_initializer
+%type <node> type_name abstract_declarator direct_abstract_declarator attribute_specifier
+%type <node> initializer_list designation designator_list designator designation_initializer declaration_list 
+%type <node> asm_qualifier_list asm_operand_list  asm_operand asm_operand_list_2
+
+%type <d> type_qualifier assignment_operator storage_class_specifier struct_or_union type_specifier asm_qualifier
 
 
-%type <d> type_qualifier assignment_operator storage_class_specifier struct_or_union type_specifier
 
 
 
@@ -72,13 +77,20 @@ translation_unit
 	;
 
 external_declaration
-	: function_definition	{func_eval($1);}
-	//| declaration			{yyerror("Error: global declaration not implemented\n");}
+	: function_definition	
+	| declaration			{global_eval($1);}
 	;
 
 function_definition
-	: INT ID '(' ')' compound_statement		{$$=newast(FUNCTION,(void*)$2,$5);}
+	: declaration_specifiers declarator declaration_list compound_statement		
+							{func_eval($1,$2,$3,$4);}
+	| declaration_specifiers declarator compound_statement		
+							{func_eval($1,$2,NULL,$3);}
 	;
+	
+declaration_list
+	: declaration					{$$=newast(DECLERATION_LIST,$1,NULL);}
+	| declaration_list declaration 	{$$=newast(DECLERATION_LIST,$2,$1);}
 	
 compound_statement
 	: '{' '}'									{$$=newast(COMPOUND,NULL,NULL);}
@@ -109,6 +121,7 @@ declaration_specifiers
 	| struct_union_specifier declaration_specifiers_opt		{$$=newast(STRUCT_UNION,$2,$1);}
 	| enum_specifier declaration_specifiers_opt				{$$=newast(ENUM,$2,$1);}
 	| TYPEDEF_NAME declaration_specifiers_opt				{$$=newast(TYPEDEF_ID,$2,$1);}
+	| attribute_specifier declaration_specifiers_opt		{$$=newast(ATTRIBUTE,$2,$1);}
 	| type_qualifier declaration_specifiers_opt				{$$=newast($1,$2,NULL);}
 	;
 	
@@ -228,8 +241,15 @@ type_qualifier
 	| RESTRICT								{$$=RESTRICT;}
 	| VOLATILE								{$$=VOLATILE;}
 	| ATOMIC								{$$=ATOMIC2;}
+	| NORETURN								{$$=NORETURN;}
+	| INLINE								{$$=INLINE;}
 	; 
 	
+attribute_specifier
+	: ATTRIBUTE '(' '(' ID  ')' ')'			{$$=newast(ATTRIBUTE,$4,NULL);}
+	| ATTRIBUTE '(' '(' ID '(' argument_expression_list ')'  ')' ')'
+											{$$=newast(ATTRIBUTE,$4,$6);}
+	;
 
 
 declarator
@@ -309,11 +329,6 @@ direct_abstract_declarator
 	| '(' ')'									{$$=newast(FUNCTION,NULL,NULL);}
 	;
 	
-/*direct_abstract_declarator_opt
-	: direct_abstract_declarator	{$$=$1;}
-	|								{$$=NULL;}
-	;*/
-	
 
 	
 initializer
@@ -353,6 +368,8 @@ statement
 	| labeled_statement						{$$=$1;}
 	| selection_statement					{$$=$1;}
 	| iteration_statement					{$$=$1;}
+	| assembly_statement					{$$=$1;}
+	| expression_opt						{$$=$1;}
 	;
 
 labeled_statement
@@ -384,8 +401,41 @@ iteration_statement
 											{$$=(void*)newfor(FOR,$3,$4,$5,$7);}
 	;
 	
+
 	
+assembly_statement
+	: ASM asm_qualifier_list '(' STRING ':'  asm_operand_list ')'
+									{$$=newast(ASM,$2,newast(0,$4,$6));}
+	| ASM '(' STRING ':'  asm_operand_list ')' 
+									{$$=newast(ASM,NULL,newast(0,$3,$5));}
+	;								
 	
+asm_qualifier_list
+	: asm_qualifier						{$$=newast($1,NULL,NULL);}
+	| asm_qualifier_list asm_qualifier	{$$=newast($2,$1,NULL);}
+	;
+
+asm_qualifier
+	: VOLATILE	{$$=VOLATILE;}
+	| INLINE	{$$=INLINE;}
+	| GOTO		{$$=GOTO;}
+	;
+
+asm_operand_list
+	: asm_operand_list_2						{$$=newast(ASM_OPERAND_LIST,$1,NULL);}
+	| asm_operand_list ':' asm_operand_list_2 	{$$=newast(ASM_OPERAND_LIST,$3,$1);}
+	;
+	
+asm_operand_list_2
+	: asm_operand							{$$=newast(ASM_OPERAND_LIST_2,$1,NULL);}
+	| asm_operand_list_2 ',' asm_operand	{$$=newast(ASM_OPERAND_LIST_2,$3,$1);}
+	;
+	
+asm_operand
+	: STRING '(' unary_expression ')'			{$$=newast(ASM_OPERAND,$1,$3);}
+	;
+
+
 	
 expression_opt
 	: 	';'				{$$=NULL;}
@@ -485,6 +535,7 @@ multiplicative_expression
 
 cast_expression
 	: unary_expression						{$$=$1;}
+	| '(' type_name ')'						{$$=newast(CAST,$2,NULL);}
 	;
 
 unary_expression
@@ -496,6 +547,7 @@ unary_expression
 	| '~' cast_expression					{$$=newast('~',$2,NULL);}
 	| '!' cast_expression					{$$=newast('!',$2,NULL);}
 	| SIZEOF unary_expression				{$$=newast(SIZEOF,$2,NULL);}
+	| SIZEOF '(' type_name ')'				{$$=newast(SIZEOF,NULL,$3);}
 	;
 
 postfix_expression
