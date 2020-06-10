@@ -1,3 +1,5 @@
+
+
 %{
 
     #include <stdio.h>
@@ -5,18 +7,29 @@
 
     void yyerror(char *str);
     char *istrndup(char *str,size_t len);
-
+	int check_typedef(char *identifier);
 
 %}
 
+/* Sections from http://www.quut.com/c/ANSI-C-grammar-l-2011.html */
+O   [0-7]
+D   [0-9]
+NZ  [1-9]
+L   [a-zA-Z_]
+A   [a-zA-Z_0-9]
+H   [a-fA-F0-9]
+HP  (0[xX])
+E   ([Ee][+-]?{D}+)
+P   ([Pp][+-]?{D}+)
+FS  (f|F|l|L)
+IS  (((u|U)(l|L|ll|LL)?)|((l|L|ll|LL)(u|U)?))
+CP  (u|U|L)
+SP  (u8|u|U|L)
+ES  (\\(['"\?\\abfnrtv]|[0-7]{1,3}|x[a-fA-F0-9]+))
+WS  [ \t\v\n\f]
+
 %option noyywrap
-D			[0-9]
-L			[a-zA-Z_]
-H			[a-fA-F0-9]
-E			([Ee][+-]?{D}+)
-P           ([Pp][+-]?{D}+)
-FS			(f|F|l|L)
-IS          ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
+
 
 %%
 "char"		{return CHAR;}
@@ -58,8 +71,26 @@ IS          ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 
 "sizeof"	{return SIZEOF;}
 
-[0-9]+                  {yylval.d=atol(yytext);return ICONSTANT;}
-[_a-zA-Z][_a-zA-Z0-9]*  {yylval.str=istrndup(yytext,32);return ID;}
+"__asm__"		|
+"asm"			{return ASM;}
+"__attribute__"	|
+"__attribute"	{return ATTRIBUTE;}
+"inline"		{return INLINE;}
+"_Noreturn"		{return NORETURN;}
+
+{HP}{H}+{IS}?					|
+{NZ}{D}*{IS}?					|
+"0"{O}*{IS}?					|
+{CP}?"'"([^'\\\n]|{ES})+"'"     {yylval.str=istrndup(yytext,16);return ICONSTANT;}
+
+{D}+{E}{FS}?				|
+{D}*"."{D}+{E}?{FS}?		|
+{D}+"."{E}?{FS}?			|
+{HP}{H}+{P}{FS}?			|
+{HP}{H}*"."{H}+{P}{FS}?		|
+{HP}{H}+"."{P}{FS}?			{yylval.str=istrndup(yytext,32);return FCONSTANT;}
+
+[_a-zA-Z][_a-zA-Z0-9]*  {yylval.str=istrndup(yytext,32);return check_typedef(yylval.str);}
 
 \"(\\.|[^\\"\n])*\"		{yylval.str=istrndup(yytext,128);return STRING;}
 
@@ -112,6 +143,7 @@ IS          ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 "..."		{return DOTDOTDOT;}
 
 "\n"        {   }
-[ \t]       {   }
+[ \t\r]       {   }
 .           {yyerror("Error: unknown character");}
 %%
+

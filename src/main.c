@@ -43,9 +43,9 @@ char* compile(char *filename) {
     printf("%s", preprocessed);
 
     fclose(file);
-	file = fopen(filename, "r");
-	yyin=file;
-	yyparse();
+    file = fopen(filename, "r");
+    yyin=file;
+    yyparse();
     return filename; // Haven't finished processing
 }
 
