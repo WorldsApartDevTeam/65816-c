@@ -129,15 +129,15 @@ struct ptr_ll* cpp_readAndLineBreak(FILE *file); // I don't want to bother rewri
 struct asm_ast cur_ast;
 
 struct asm_ast_param* asm_parse_long(char **line) { // ** so we can advance the pointer
-    while(**line == ' ' || **line == '\t') *line++;
+    while(**line == ' ' || **line == '\t') (*line)++;
     if(**line == '$' && !(*(*line+1) == ' ' || *(*line+1) == '\t')) { // Address
-        *line++;
+        (*line)++;
         char *start = *line;
         while(
             (**line >= 'A' && **line <= 'F') ||
             (**line >= 'a' && **line <= 'f') ||
             (**line >= '0' && **line <= '9')
-        ) *line++;
+        ) (*line)++;
         uint32_t value = 0;
         while(*start != 0) {
             value <<= 4;
@@ -161,7 +161,7 @@ struct asm_ast_param* asm_parse_long(char **line) { // ** so we can advance the 
             **line == '.' ||
             **line == '+' ||
             **line == '-'
-        ) *line++;
+        ) (*line)++;
         **line = 0; // Null terminate
         struct asm_ast_param *param = malloc(sizeof(struct asm_ast_param));
         param->type = 19;
@@ -172,15 +172,15 @@ struct asm_ast_param* asm_parse_long(char **line) { // ** so we can advance the 
 }
 
 struct asm_ast_param* asm_parse_rel(char **line) { // ** so we can advance the pointer
-    while(**line == ' ' || **line == '\t') *line++;
+    while(**line == ' ' || **line == '\t') (*line)++;
     if(**line == '$' && !(*(*line+1) == ' ' || *(*line+1) == '\t')) { // Address
-        *line++;
+        (*line)++;
         char *start = *line;
         while(
             (**line >= 'A' && **line <= 'F') ||
             (**line >= 'a' && **line <= 'f') ||
             (**line >= '0' && **line <= '9')
-        ) *line++;
+        ) (*line)++;
         uint32_t value = 0;
         while(*start != 0) {
             value <<= 4;
@@ -210,7 +210,7 @@ struct asm_ast_param* asm_parse_rel(char **line) { // ** so we can advance the p
             **line == '.' ||
             **line == '+' ||
             **line == '-'
-        ) *line++;
+        ) (*line)++;
         **line = 0; // Null terminate
         struct asm_ast_param *param = malloc(sizeof(struct asm_ast_param));
         param->type = 19;
