@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdnoreturn.h>
@@ -75,25 +76,38 @@ void *smalloc(size_t len)
 char *istrndup(const char *str,size_t len)
 {
 
-    char *new;
+    char *newStr;
 
     len=strlen(str)>len?len:strlen(str);
-    new=smalloc(len);
-    strncpy(new,str,len);
+    newStr=smalloc(len);
+    strncpy(newStr,str,len);
 
-    return new;
+    return newStr;
 
 }
 
 #include "ll.h"
 
-struct asm_ast_label {
+struct asm_ast_absolute {
+    uint16_t addr;
+};
+
+struct asm_ast_long {
+    uint32_t addr;
+};
+
+struct asm_ast_label { // Can be used as either a node or a param
     char *label;
 };
 
+struct asm_ast_param {
+    int type;
+    void *param;
+};
+
 struct asm_ast_instruction {
-    unsigned char opcode;
-    void *params;
+    uint8_t opcode;
+    struct asm_ast_param **params;
 };
 
 struct asm_ast_directive {
@@ -114,6 +128,98 @@ struct ptr_ll* cpp_readAndLineBreak(FILE *file); // I don't want to bother rewri
 
 struct asm_ast cur_ast;
 
+struct asm_ast_param* asm_parse_long(char **line) { // ** so we can advance the pointer
+    while(**line == ' ' || **line == '\t') *line++;
+    if(**line == '$' && !(*(*line+1) == ' ' || *(*line+1) == '\t')) { // Address
+        *line++;
+        char *start = *line;
+        while(
+            (**line >= 'A' && **line <= 'F') ||
+            (**line >= 'a' && **line <= 'f') ||
+            (**line >= '0' && **line <= '9')
+        ) *line++;
+        uint32_t value = 0;
+        while(*start != 0) {
+            value <<= 4;
+            if(*start >= 'a')      value += *start - 'a' + 0xa;
+            else if(*start >= 'A') value += *start - 'A' + 0xA;
+            else                   value += *start - '0' + 0x0;
+        }
+        struct asm_ast_param *param = malloc(sizeof(struct asm_ast_param));
+        param->type = 14;
+        struct asm_ast_long *longAddr = malloc(sizeof(struct asm_ast_long));
+        longAddr->addr = value;
+        return param;
+    } else { // Assume it's a label for now
+        char *labelStart = *line;
+        while(
+            (**line >= 'A' && **line <= 'Z') ||
+            (**line >= 'a' && **line <= 'z') ||
+            (**line >= '0' && **line <= '9') ||
+            **line == '$' ||
+            **line == '_' ||
+            **line == '.' ||
+            **line == '+' ||
+            **line == '-'
+        ) *line++;
+        **line = 0; // Null terminate
+        struct asm_ast_param *param = malloc(sizeof(struct asm_ast_param));
+        param->type = 19;
+        struct asm_ast_label *label = malloc(sizeof(struct asm_ast_label));
+        label->label = labelStart;
+        return param;
+    }
+}
+
+struct asm_ast_param* asm_parse_rel(char **line) { // ** so we can advance the pointer
+    while(**line == ' ' || **line == '\t') *line++;
+    if(**line == '$' && !(*(*line+1) == ' ' || *(*line+1) == '\t')) { // Address
+        *line++;
+        char *start = *line;
+        while(
+            (**line >= 'A' && **line <= 'F') ||
+            (**line >= 'a' && **line <= 'f') ||
+            (**line >= '0' && **line <= '9')
+        ) *line++;
+        uint32_t value = 0;
+        while(*start != 0) {
+            value <<= 4;
+            if(*start >= 'a')      value += *start - 'a' + 0xa;
+            else if(*start >= 'A') value += *start - 'A' + 0xA;
+            else                   value += *start - '0' + 0x0;
+        }
+        struct asm_ast_param *param = malloc(sizeof(struct asm_ast_param));
+        if((*line-start) > 4) {
+            param->type = 14;
+            struct asm_ast_long *longAddr = malloc(sizeof(struct asm_ast_long));
+            longAddr->addr = value;
+        } else {
+            param->type = 11;
+            struct asm_ast_absolute *absAddr = malloc(sizeof(struct asm_ast_absolute));
+            absAddr->addr = value;
+        }
+        return param;
+    } else { // Assume it's a label for now
+        char *labelStart = *line;
+        while(
+            (**line >= 'A' && **line <= 'Z') ||
+            (**line >= 'a' && **line <= 'z') ||
+            (**line >= '0' && **line <= '9') ||
+            **line == '$' ||
+            **line == '_' ||
+            **line == '.' ||
+            **line == '+' ||
+            **line == '-'
+        ) *line++;
+        **line = 0; // Null terminate
+        struct asm_ast_param *param = malloc(sizeof(struct asm_ast_param));
+        param->type = 19;
+        struct asm_ast_label *label = malloc(sizeof(struct asm_ast_label));
+        label->label = labelStart;
+        return param;
+    }
+}
+
 void asm_make_ast(void *_line) {
     char *line = (char*)_line;
     while(*line == ' ' || *line == '\t') line++;
@@ -123,6 +229,7 @@ void asm_make_ast(void *_line) {
         (*line >= 'A' && *line <= 'Z') ||
         (*line >= 'a' && *line <= 'z') ||
         (*line >= '0' && *line <= '9') ||
+        *line == '$' ||
         *line == '_' ||
         *line == '.' ||
         *line == '+' ||
@@ -145,6 +252,7 @@ void asm_make_ast(void *_line) {
             (*line >= 'A' && *line <= 'Z') ||
             (*line >= 'a' && *line <= 'z') ||
             (*line >= '0' && *line <= '9') ||
+            *line == '$' ||
             *line == '_' ||
             *line == '.' ||
             *line == '+' ||
@@ -166,6 +274,59 @@ void asm_make_ast(void *_line) {
         // I know that plenty of directives have parameters.
         // I'm going to ignore that for now, because I don't know what they are.
         ptr_ll_add(cur_ast.nodes, node);
+    } else { // Instruction
+        *line = 0; // Null terminate. Of course.
+        char *trueOpStart = opStart;
+        while(*opStart != 0) { // And now, to capitalize. Early.
+            if(*opStart >= 'a') *opStart -= 'a' - 'A';
+            opStart++;
+        }
+        opStart = trueOpStart;
+        struct asm_ast_node_generic *node = malloc(sizeof(struct asm_ast_node_generic));
+        node->type = 1;
+        struct asm_ast_instruction *instruction = malloc(sizeof(struct asm_ast_instruction));
+        if(!strcmp("BRK", opStart)) { // Fun fact, !strcmp means they're equal.
+            instruction->opcode = 0;
+        } else if(!strcmp("ORA", opStart)) { // Opcodes $01, $03, $05, $07, $09, $0D, $0F, $11, $12, $13, $15, $17, $19, $1D, $1F
+            
+        } else if(!strcmp("COP", opStart)) {
+            instruction->opcode = 2;
+        } else if(!strcmp("TSB", opStart)) { // Opcodes $04, $0C
+            
+        } else if(!strcmp("ASL", opStart)) { // Opcodes $06, $0A, $0E, $16, $1E
+            
+        } else if(!strcmp("PHP", opStart)) {
+            instruction->opcode = 8;
+        } else if(!strcmp("PHD", opStart)) {
+            instruction->opcode = 0xB;
+        } else if(!strcmp("BPL", opStart)) {
+            instruction->opcode = 0x10;
+            struct asm_ast_param **params = malloc(1*sizeof(struct asm_ast_param)); // 1 operand
+            params[0] = asm_parse_rel(&line);
+            instruction->params = params;
+        } else if(!strcmp("TRB", opStart)) { // Opcodes $14, $1C
+            
+        } else if(!strcmp("CLC", opStart)) {
+            instruction->opcode = 0x18;
+        } else if(!strcmp("INC", opStart)) { // Opcodes $1A, $E6, $EE, $F6, $FE
+            
+        } else if(!strcmp("TCS", opStart)) {
+            instruction->opcode = 0x1B;
+        } else if(!strcmp("JSR", opStart)) { // Opcodes $20, $FC
+            
+        } else if(!strcmp("AND", opStart)) { // Opcodes $21, $23, $25, $27, $29, $2D, $2F, $31, $32, $33, $35, $37, $39, $3D, $3F
+            
+        } else if(!strcmp("JSL", opStart)) {
+            instruction->opcode = 0x22;
+            struct asm_ast_param **params = malloc(1*sizeof(struct asm_ast_param)); // 1 operand
+            params[0] = asm_parse_long(&line);
+            instruction->params = params;
+        } else if(!strcmp("BIT", opStart)) { // Opcodes $24, $2C, $34, $3C, $89
+            
+        } else {
+            fprintf(stderr, "Error: unrecognized instruction \"%s\"!\n", opStart);
+            exit(1);
+        }
     }
 }
 
