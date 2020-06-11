@@ -53,5 +53,4 @@ add_executable(${COMPILER_TARGET}-cc src/main.c src/cpp.c src/elf.c src/ll.c
         src/evalfunc.c src/evalstmt.c src/free.c src/typelist.c)
 
 
-
 install(TARGETS ${COMPILER_TARGET}-cc RUNTIME DESTINATION bin)
